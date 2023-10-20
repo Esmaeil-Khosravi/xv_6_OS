@@ -6,6 +6,7 @@
 #include "spinlock.h"
 #include "proc.h"
 
+
 uint64
 sys_exit(void)
 {
@@ -88,4 +89,28 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+int
+sys_history(int id, char *buf, int bufsize)
+{
+    int n;
+    if (argint(0, &n) < 0)
+        return -1;
+
+    int index = n;
+    //int i = historyBufferArray.currentHistory;
+    int m = historyBufferArray.lastCommandIndex;
+    int x = historyBufferArray.numOfCommandsInMem;
+    int i;
+    for(i = m; m >=0 && x> 0; m--){
+        i = (i -1 + MAX_HISTORY)% MAX_HISTORY;
+        consputc('\n');
+        consolewrite(1, (uint64_t)historyBufferArray.bufferArr[i], historyBufferArray.lengthsArr[i]);
+        consputc('\n');
+    }
+    if (index >= 0 && index < historyBufferArray.numOfCommandsInMem){
+        consolewrite(1, (uint64_t)historyBufferArray.bufferArr[index], historyBufferArray.lengthsArr[index]);
+    }
+    return 0;
 }

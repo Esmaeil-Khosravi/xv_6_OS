@@ -21,7 +21,8 @@
 #include "riscv.h"
 #include "defs.h"
 #include "proc.h"
-
+#include <stdint.h>
+#define MAX_HISTORY 16
 #define BACKSPACE 0x100
 #define C(x)  ((x)-'@')  // Control-x
 
@@ -30,6 +31,8 @@
 // called by printf(), and to echo input characters,
 // but not from write().
 //
+
+
 void
 consputc(int c)
 {
@@ -43,7 +46,7 @@ consputc(int c)
 
 struct {
   struct spinlock lock;
-  
+
   // input
 #define INPUT_BUF_SIZE 128
   char buf[INPUT_BUF_SIZE];
@@ -52,12 +55,25 @@ struct {
   uint e;  // Edit index
 } cons;
 
+struct {
+
+    char bufferArr[MAX_HISTORY][INPUT_BUF_SIZE];
+    uint lengthsArr[MAX_HISTORY];
+    uint lastCommandIndex;
+    int numOfCommandsInMem;
+    int currentHistory;
+
+
+}historyBufferArray;
+
+
 //
 // user write()s to the console go here.
 //
 int
 consolewrite(int user_src, uint64 src, int n)
 {
+
   int i;
 
   for(i = 0; i < n; i++){
@@ -66,8 +82,26 @@ consolewrite(int user_src, uint64 src, int n)
       break;
     uartputc(c);
   }
+  acquire(&cons.lock);
+ if (n > 0) {
+    char c;
+    for (int i = 0; i < n; i++) {
+        if (copyin(user_src, &c, src + i, 1) == -1) {
+            break;
+        }
+        historyBufferArray.bufferArr[historyBufferArray.lastCommandIndex][i] = c;
+    }
+    historyBufferArray.lengthsArr[historyBufferArray.lastCommandIndex] = n;
+    historyBufferArray.lastCommandIndex = (historyBufferArray.lastCommandIndex + 1) % MAX_HISTORY;
 
-  return i;
+    if (historyBufferArray.numOfCommandsInMem == MAX_HISTORY) {
+        historyBufferArray.currentHistory = (historyBufferArray.currentHistory + 1) % MAX_HISTORY;
+    } else {
+        historyBufferArray.numOfCommandsInMem++;
+    }
+    return i;
+}
+
 }
 
 //
@@ -155,6 +189,7 @@ consoleintr(int c)
       consputc(BACKSPACE);
     }
     break;
+
   default:
     if(c != 0 && cons.e-cons.r < INPUT_BUF_SIZE){
       c = (c == '\r') ? '\n' : c;
@@ -174,8 +209,8 @@ consoleintr(int c)
     }
     break;
   }
-  
-  release(&cons.lock);
+
+
 }
 
 void
@@ -184,9 +219,19 @@ consoleinit(void)
   initlock(&cons.lock, "cons");
 
   uartinit();
+  // initializing the bufferArray, a data structure for storing history commands.
+  historyBufferArray.lastCommandIndex = 0;
+  historyBufferArray.numOfCommandsInMem = 0;
+  historyBufferArray.currentHistory = -1; //
+  //memset(historyBufferArray.bufferArr, 0, sizeof(historyBufferArray.bufferArr)); // clearing the memory
+  //memset(historyBufferArray.lengthsArr, 0, sizeof(historyBufferArray.lengthsArr)); //clearing the memory
 
   // connect read and write system calls
   // to consoleread and consolewrite.
   devsw[CONSOLE].read = consoleread;
   devsw[CONSOLE].write = consolewrite;
+
 }
+
+
+
