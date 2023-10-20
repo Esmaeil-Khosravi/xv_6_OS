@@ -99,17 +99,26 @@ sys_history(int id, char *buf, int bufsize)
         return -1;
 
     int index = n;
+    if (index < 0 || index >= historyBufferArray.numOfCommandsInMem) {
+
+        // Invalid index. Return an error code.
+        return -1;
+
     //int i = historyBufferArray.currentHistory;
     int m = historyBufferArray.lastCommandIndex;
     int x = historyBufferArray.numOfCommandsInMem;
     int i;
-    for(i = m; m >=0 && x> 0; m--){
-        i = (i -1 + MAX_HISTORY)% MAX_HISTORY;
+    while(x> 0){
+         // this is for showing command histories.
+        i = (m - 1 + MAX_HISTORY)% MAX_HISTORY;
         consputc('\n');
         consolewrite(1, (uint64_t)historyBufferArray.bufferArr[i], historyBufferArray.lengthsArr[i]);
         consputc('\n');
+        x --;
+        m = i;
     }
-    if (index >= 0 && index < historyBufferArray.numOfCommandsInMem){
+
+    if (index >= 0 && index < historyBufferArray.numOfCommandsInMem){ // this is for showing the specific command that used has requested.
         consolewrite(1, (uint64_t)historyBufferArray.bufferArr[index], historyBufferArray.lengthsArr[index]);
     }
     return 0;

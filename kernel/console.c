@@ -82,7 +82,7 @@ consolewrite(int user_src, uint64 src, int n)
       break;
     uartputc(c);
   }
-  acquire(&cons.lock);
+  //acquire(&cons.lock);
  if (n > 0) {
     char c;
     for (int i = 0; i < n; i++) {
@@ -93,7 +93,6 @@ consolewrite(int user_src, uint64 src, int n)
     }
     historyBufferArray.lengthsArr[historyBufferArray.lastCommandIndex] = n;
     historyBufferArray.lastCommandIndex = (historyBufferArray.lastCommandIndex + 1) % MAX_HISTORY;
-
     if (historyBufferArray.numOfCommandsInMem == MAX_HISTORY) {
         historyBufferArray.currentHistory = (historyBufferArray.currentHistory + 1) % MAX_HISTORY;
     } else {
@@ -189,6 +188,21 @@ consoleintr(int c)
       consputc(BACKSPACE);
     }
     break;
+  case C('R'):  // Show command history.
+      acquire(&cons.lock);
+      if (historyBufferArray.numOfCommandsInMem > 0) {
+          if (historyBufferArray.currentHistory == -1) {
+              historyBufferArray.currentHistory = historyBufferArray.lastCommandIndex;
+            }
+          else {
+                historyBufferArray.currentHistory = (historyBufferArray.currentHistory - 1 + MAX_HISTORY) % MAX_HISTORY;
+            }
+          consputc('\n');
+          consolewrite(1, (uint64_t)historyBufferArray.bufferArr[historyBufferArray.currentHistory], historyBufferArray.lengthsArr[historyBufferArray.currentHistory]);
+          consputc('\n');
+        }
+      release(&cons.lock);
+      break;
 
   default:
     if(c != 0 && cons.e-cons.r < INPUT_BUF_SIZE){
@@ -210,7 +224,7 @@ consoleintr(int c)
     break;
   }
 
-
+  release(&cons.lock);
 }
 
 void
